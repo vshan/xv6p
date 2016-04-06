@@ -45,16 +45,18 @@ exec(char *path, char **argv)
       continue;
     if(ph.memsz < ph.filesz)
       goto bad;
-    if((sz = allocuvm(pgdir, sz, ph.vaddr + ph.memsz)) == 0)
-      goto bad;
+    //if((sz = allocuvm(pgdir, sz, ph.vaddr + ph.memsz)) == 0)
+    //  goto bad;
+    sz += ph.vaddr + ph.memsz;
     cprintf("vaddr: 0x%x, memsz: %d, total: %d, sz: %d, 0x%x, round up sz: %d, 0x%x\n", ph.vaddr, ph.memsz, ph.vaddr + ph.memsz, sz, sz, PGROUNDUP(sz), PGROUNDUP(sz));
-    if(loaduvm(pgdir, (char*)ph.vaddr, ip, ph.off, ph.filesz) < 0)
-      goto bad;
+    //if(loaduvm(pgdir, (char*)ph.vaddr, ip, ph.off, ph.filesz) < 0)
+    //  goto bad;
     cprintf("addr: 0x%x, inode: %d, offset: 0x%x, %d, filesz: 0x%x, %d\n", ph.vaddr, ip, ph.off, ph.off, ph.filesz, ph.filesz);
   }
+  proc->ipgswp = ip;
   iunlockput(ip);
   end_op();
-  ip = 0;
+  //ip = 0;
 
   // Allocate two pages at the next page boundary.
   // Make the first inaccessible.  Use the second as the user stack.
@@ -75,8 +77,7 @@ exec(char *path, char **argv)
   }
   ustack[3+argc] = 0;
 
-  ustack[0] = 0xffffffff;  // fake return PC
-  ustack[1] = argc;
+  ustack[0] = 0xffffffff;  // fake return P
   ustack[2] = sp - (argc+1)*4;  // argv pointer
 
   sp -= (3+argc+1) * 4;

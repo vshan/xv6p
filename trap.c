@@ -7,6 +7,7 @@
 #include "x86.h"
 #include "traps.h"
 #include "spinlock.h"
+#include "elf.h"
 
 int mappages(pde_t *pgdir, void *va, uint size, uint pa, int perm);
 
@@ -152,7 +153,25 @@ page_fault_handler(void)
   // page fault is from code data segment
   // read from disk, page it in
   else {
-    cprintf("code data segment is faulting!\n");
-    
+    struct elfhdr elf;
+    struct proghdr ph;
+    uint old_adr;
+    char *new_mem;
+    cprintf("text data segment is faulting!\n");
+    old_adr = PGROUNDDOWN(rcr2());
+    cprintf("at 0x%x\n", rcr2());
+    readi(proc->ipgswp, (char*)&elf, 0, sizeof(elf));
+    readi(proc->ipgswp, (char*)&ph, elf.phoff, sizeof(ph));
+    //allocuvm(pgdir, sz, ph.vaddr + ph.memsz);
+    new_mem = kalloc();
+    if(new_mem == 0){
+      cprintf("system out of memory\n");
+      //deallocuvm(pgdir, newsz, oldsz); TODO: Implement this
+      return;
+    }
+    memset(new_mem, 0, PGSIZE);
+    mappages(proc->pgdir, (char*)old_adr, PGSIZE, v2p(new_mem), PTE_W|PTE_U);
+    loaduvm(proc->pgdir, (char*)ph.vaddr, proc->ipgswp, ph.off, PGSIZE);
+
   }
 }
