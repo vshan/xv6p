@@ -8,11 +8,14 @@
 #include "traps.h"
 #include "spinlock.h"
 
+int mappages(pde_t *pgdir, void *va, uint size, uint pa, int perm);
+
 // Interrupt descriptor table (shared by all CPUs).
 struct gatedesc idt[256];
 extern uint vectors[];  // in vectors.S: array of 256 entry pointers
 struct spinlock tickslock;
 uint ticks;
+void page_fault_handler(void);
 
 void
 tvinit(void)
@@ -36,6 +39,7 @@ idtinit(void)
 void
 trap(struct trapframe *tf)
 {
+  
   if(tf->trapno == T_SYSCALL){
     if(proc->killed)
       exit();
@@ -77,7 +81,22 @@ trap(struct trapframe *tf)
             cpu->id, tf->cs, tf->eip);
     lapiceoi();
     break;
-   
+  
+  // for lazy page allocation
+  case T_PGFLT:
+    page_fault_handler();
+    break;
+
+    /*
+     Currently this Page Fault handler only deals with lazy page allocation of heap
+     memory. How do we bring in the code-data we need ? think of readi. And how do we
+     distiguish the two? 
+
+
+    */
+
+
+
   //PAGEBREAK: 13
   default:
     if(proc == 0 || (tf->cs&3) == 0){
@@ -108,4 +127,32 @@ trap(struct trapframe *tf)
   // Check if the process has been killed since we yielded
   if(proc && proc->killed && (tf->cs&3) == DPL_USER)
     exit();
+}
+
+void 
+page_fault_handler(void)
+{
+  // For lazy page allocation
+  // if is heap or is stack
+  // stack if equal, heap otherwise
+  if (rcr2() >= proc->tf->esp) { 
+    cprintf("heap is faulting\n");
+    char *new_mem;
+    uint old_adr;
+    old_adr = PGROUNDDOWN(rcr2());
+    new_mem = kalloc();
+    if(new_mem == 0){
+      cprintf("system out of memory\n");
+      //deallocuvm(pgdir, newsz, oldsz); TODO: Implement this
+      return;
+    }
+    memset(new_mem, 0, PGSIZE);
+    mappages(proc->pgdir, (char*)old_adr, PGSIZE, v2p(new_mem), PTE_W|PTE_U);
+  }
+  // page fault is from code data segment
+  // read from disk, page it in
+  else {
+    cprintf("code data segment is faulting!\n");
+    
+  }
 }

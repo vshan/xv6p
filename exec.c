@@ -37,6 +37,7 @@ exec(char *path, char **argv)
 
   // Load program into memory.
   sz = 0;
+  cprintf("it begins\n");
   for(i=0, off=elf.phoff; i<elf.phnum; i++, off+=sizeof(ph)){
     if(readi(ip, (char*)&ph, off, sizeof(ph)) != sizeof(ph))
       goto bad;
@@ -46,8 +47,10 @@ exec(char *path, char **argv)
       goto bad;
     if((sz = allocuvm(pgdir, sz, ph.vaddr + ph.memsz)) == 0)
       goto bad;
+    cprintf("vaddr: 0x%x, memsz: %d, total: %d, sz: %d, 0x%x, round up sz: %d, 0x%x\n", ph.vaddr, ph.memsz, ph.vaddr + ph.memsz, sz, sz, PGROUNDUP(sz), PGROUNDUP(sz));
     if(loaduvm(pgdir, (char*)ph.vaddr, ip, ph.off, ph.filesz) < 0)
       goto bad;
+    cprintf("addr: 0x%x, inode: %d, offset: 0x%x, %d, filesz: 0x%x, %d\n", ph.vaddr, ip, ph.off, ph.off, ph.filesz, ph.filesz);
   }
   iunlockput(ip);
   end_op();
