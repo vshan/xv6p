@@ -15,6 +15,8 @@ exec(char *path, char **argv)
   uint argc, sz, sp, ustack[3+MAXARG+1];
   struct elfhdr elf;
   struct inode *ip;
+  struct file *sf;
+  struct inode *ip2;
   struct proghdr ph;
   pde_t *pgdir, *oldpgdir;
 
@@ -53,7 +55,35 @@ exec(char *path, char **argv)
     //  goto bad;
     cprintf("addr: 0x%x, inode: %d, offset: 0x%x, %d, filesz: 0x%x, %d\n", ph.vaddr, ip, ph.off, ph.off, ph.filesz, ph.filesz);
   }
-  proc->ipgswp = ip;
+  int num;
+  char swap_name[40];
+  swap_name = itoa(proc->pid, swap_name, &num);
+  swap_name[num++] = '.';
+  swap_name[num++] = 's';
+  swap_name[num++] = 'w';
+  swap_name[num++] = 'a';
+  swap_name[num++] = 'p';
+  swap_name[num]   = '\0';
+  ip2 = create(swap_name, T_FILE, 0, 0);
+  sf = filealloc();
+  sf->type = FD_INODE;
+  sf->ip = ip2;
+  sf->off = 0;
+  sf->readable = 1;
+  sf->writable = 1;
+  fileclose(sf);
+
+  init_vaddr_queue(&proc->vaq);
+  uint index;
+  proc->vsm->size = 0;
+  char *mem_buf = kalloc();
+  for (index = 0; index < sz; index += PGSIZE) {
+    swap_map_add(proc->vsm, index);
+    readi(ip, mem_buf, ph.off + index, PGSIZE);
+    writei(ip2, mem_buf, index, PGSIZE);
+  }
+  kfree(mem_buf);
+  proc->ipgswp = ip2;
   iunlockput(ip);
   end_op();
   //ip = 0;

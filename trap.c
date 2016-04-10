@@ -137,43 +137,186 @@ page_fault_handler(void)
   // if is heap or is stack
   // stack if equal, heap otherwise
   if (rcr2() >= proc->tf->esp) { 
-    cprintf("heap is faulting\n");
+    cprintf("heap is faulting at\n");
     char *new_mem;
     uint old_adr;
     old_adr = PGROUNDDOWN(rcr2());
-    new_mem = kalloc();
-    if(new_mem == 0){
+    while((new_mem = kalloc()) == 0)
+    {
       cprintf("system out of memory\n");
-      //deallocuvm(pgdir, newsz, oldsz); TODO: Implement this
-      return;
+      page_out();
     }
+    int ind;
+    vaddr_queue_enq(proc->vaq, rcr2());
     memset(new_mem, 0, PGSIZE);
     mappages(proc->pgdir, (char*)old_adr, PGSIZE, v2p(new_mem), PTE_W|PTE_U);
+
+    if ((ind = swap_map_check(proc->vsm, old_adr)) == -1) { // heap is new
+      swap_map_add(proc->vsm, rcr2());
+    }
+    else { // heap page exists
+      loaduvm(proc->pgdir, (char*)old_adr, proc->ipgswp, ind * PGSIZE, PGSIZE);
+    }
   }
   // page fault is from code data segment
   // read from disk, page it in
   else {
-    struct elfhdr elf;
-    struct proghdr ph;
+    //struct elfhdr elf;
+    //struct proghdr ph;
     uint old_adr;
     char *new_mem;
     cprintf("text data segment is faulting!\n");
     old_adr = PGROUNDDOWN(rcr2());
     cprintf("at 0x%x\n", rcr2());
-    readi(proc->ipgswp, (char*)&elf, 0, sizeof(elf));
-    readi(proc->ipgswp, (char*)&ph, elf.phoff, sizeof(ph));
+    // readi(proc->ipgswp, (char*)&elf, 0, sizeof(elf));
+    // readi(proc->ipgswp, (char*)&ph, elf.phoff, sizeof(ph));
     //allocuvm(pgdir, sz, ph.vaddr + ph.memsz);
-    new_mem = kalloc();
-    if(new_mem == 0){
+    int ind = swap_map_check(proc->vsm, old_adr);
+    while((new_mem = kalloc()) == 0)
+    {
       cprintf("system out of memory\n");
       // IMPLEMENT PAGING OUT HERE
       // PAGE REPLACEMENT ALGO
       //deallocuvm(pgdir, newsz, oldsz); TODO: Implement this
-      return;
+      page_out();
     }
+    vaddr_queue_enq(proc->vaq, rcr2());
     memset(new_mem, 0, PGSIZE);
     mappages(proc->pgdir, (char*)old_adr, PGSIZE, v2p(new_mem), PTE_W|PTE_U);
-    loaduvm(proc->pgdir, (char*)old_adr, proc->ipgswp, ph.off + old_adr, PGSIZE);
+    loaduvm(proc->pgdir, (char*)old_adr, proc->ipgswp, ind * PGSIZE, PGSIZE);
 
   }
+}
+
+void page_out(void)
+{
+  uint repl_va = PGROUNDDOWN(vaddr_queue_deq(proc->vaq));
+  int ind = swap_map_check(proc->vsm, repl_va);
+  writei(proc->ipgswp, (char*)repl_va, ind * PGSIZE, PGSIZE);
+  pte = walkpgdir(pgdir, (char*)a, 0);
+  pa = PTE_ADDR(*pte);
+  if(pa == 0)
+    panic("kfree");
+  char *v = p2v(pa);
+  kfree(v);
+  *pte = 0;
+}
+
+struct va_swap_map {
+  uint vaddrs[1024];
+  int size;
+};
+
+void
+swap_map_add(struct va_swap_map* vsm, uint va)
+{
+  vsm->vaddrs[vsm->size++] = PGROUNDDOWN(va); 
+}
+
+int
+swap_map_check(struct va_swap_map* vsm, uint va)
+{
+  // va must be page-aligned
+  int index;
+  for (index = 0; index < size; index++) {
+    if (va == vsm->vaddrs[index]) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+
+struct vaddr_queue {
+  uint vaddrs[1024];
+  //uint refer[1024];
+  struct spinlock lock;
+  int size;
+};
+
+void
+init_vaddr_queue(struct vaddr_queue* vaq)
+{
+  initlock(&vaq->lock, "vaq");
+  vaq->size = 0;
+}
+
+void
+vaddr_queue_enq(struct vaddr_queue* vaq, uint va)
+{
+  if (vaq->size == 1024) {
+    return;
+  }
+  acquire(&vaq->lock);
+  vaq->vaddrs[vaq->size] = va;
+  vaq->size++;
+  release(&vaq->lock);
+  return;
+}
+
+uint
+vaddr_queue_deq(struct vaddr_queue* vaq)
+{
+  uint va;
+  int i;
+  if (vaq->size == 0) {
+    return -1;
+  }
+  va = vaq->vaddrs[0];
+  acquire(&vaq->lock);
+  for (i = 1; i < vaq->size; i++) {
+    vaq->vaddrs[i-1] = vaq->vaddrs[i];
+  }
+  vaq->size--;
+  release(&vaq->lock);
+  return va;
+}
+ 
+// Implementation of itoa()
+char* itoa(int num, char* str, int* num)
+{
+    int i = 0;
+    bool isNegative = false;
+ 
+    /* Handle 0 explicitely, otherwise empty string is printed for 0 */
+    if (num == 0)
+    {
+        str[i++] = '0';
+        str[i] = '\0';
+        return str;
+    }
+ 
+    // In standard itoa(), negative numbers are handled only with 
+    // base 10. Otherwise numbers are considered unsigned.
+    if (num < 0 && base == 10)
+    {
+        isNegative = true;
+        num = -num;
+    }
+ 
+    // Process individual digits
+    while (num != 0)
+    {
+        int rem = num % base;
+        str[i++] = (rem > 9)? (rem-10) + 'a' : rem + '0';
+        num = num/base;
+    }
+ 
+    // If number is negative, append '-'
+    if (isNegative)
+        str[i++] = '-';
+ 
+    str[i] = '\0'; // Append string terminator
+    *num = i;
+    // Reverse the string
+    int start = 0;
+    int end = i -1;
+    while (start < end)
+    {
+        swap(*(str+start), *(str+end));
+        start++;
+        end--;
+    }
+ 
+    return str;
 }

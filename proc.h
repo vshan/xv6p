@@ -49,6 +49,7 @@ struct context {
   uint eip;
 };
 
+
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 // Per-process state
@@ -67,6 +68,8 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   struct inode *ipgswp;        // For demand paging
+  struct vaddr_queue vaq;
+  struct va_swap_map vsm;
 };
 
 // Process memory is laid out contiguously, low addresses first:
