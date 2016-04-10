@@ -166,12 +166,14 @@ page_fault_handler(void)
     new_mem = kalloc();
     if(new_mem == 0){
       cprintf("system out of memory\n");
+      // IMPLEMENT PAGING OUT HERE
+      // PAGE REPLACEMENT ALGO
       //deallocuvm(pgdir, newsz, oldsz); TODO: Implement this
       return;
     }
     memset(new_mem, 0, PGSIZE);
     mappages(proc->pgdir, (char*)old_adr, PGSIZE, v2p(new_mem), PTE_W|PTE_U);
-    loaduvm(proc->pgdir, (char*)ph.vaddr, proc->ipgswp, ph.off, PGSIZE);
+    loaduvm(proc->pgdir, (char*)old_adr, proc->ipgswp, ph.off + old_adr, PGSIZE);
 
   }
 }

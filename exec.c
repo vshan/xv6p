@@ -78,6 +78,7 @@ exec(char *path, char **argv)
   ustack[3+argc] = 0;
 
   ustack[0] = 0xffffffff;  // fake return P
+  ustack[1] = argc;
   ustack[2] = sp - (argc+1)*4;  // argv pointer
 
   sp -= (3+argc+1) * 4;
