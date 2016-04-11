@@ -52,6 +52,18 @@ struct context {
 
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+struct vaddr_queue {
+  uint vaddrs[1024];
+  //uint refer[1024];
+  struct spinlock lock;
+  int size;
+};
+
+struct va_swap_map {
+  uint vaddrs[1024];
+  int size;
+};
+
 // Per-process state
 struct proc {
   uint sz;                     // Size of process memory (bytes)
@@ -68,8 +80,8 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   struct inode *ipgswp;        // For demand paging
-  struct vaddr_queue vaq;
-  struct va_swap_map vsm;
+  struct vaddr_queue vaq;      // For demand paging
+  struct va_swap_map vsm;      // For demand paging
 };
 
 // Process memory is laid out contiguously, low addresses first:

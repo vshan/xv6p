@@ -10,6 +10,11 @@
 #include "elf.h"
 
 int mappages(pde_t *pgdir, void *va, uint size, uint pa, int perm);
+void swap_map_add(struct va_swap_map* vsm, uint va);
+int swap_map_check(struct va_swap_map* vsm, uint va);
+void init_vaddr_queue(struct vaddr_queue* vaq);
+void vaddr_queue_enq(struct vaddr_queue* vaq, uint va);
+uint vaddr_queue_deq(struct vaddr_queue* vaq);
 
 // Interrupt descriptor table (shared by all CPUs).
 struct gatedesc idt[256];
@@ -17,6 +22,7 @@ extern uint vectors[];  // in vectors.S: array of 256 entry pointers
 struct spinlock tickslock;
 uint ticks;
 void page_fault_handler(void);
+void page_out(void);
 
 void
 tvinit(void)
@@ -188,7 +194,8 @@ page_fault_handler(void)
   }
 }
 
-void page_out(void)
+void 
+page_out(void)
 {
   uint repl_va = PGROUNDDOWN(vaddr_queue_deq(proc->vaq));
   int ind = swap_map_check(proc->vsm, repl_va);
@@ -200,123 +207,4 @@ void page_out(void)
   char *v = p2v(pa);
   kfree(v);
   *pte = 0;
-}
-
-struct va_swap_map {
-  uint vaddrs[1024];
-  int size;
-};
-
-void
-swap_map_add(struct va_swap_map* vsm, uint va)
-{
-  vsm->vaddrs[vsm->size++] = PGROUNDDOWN(va); 
-}
-
-int
-swap_map_check(struct va_swap_map* vsm, uint va)
-{
-  // va must be page-aligned
-  int index;
-  for (index = 0; index < size; index++) {
-    if (va == vsm->vaddrs[index]) {
-      return index;
-    }
-  }
-  return -1;
-}
-
-
-struct vaddr_queue {
-  uint vaddrs[1024];
-  //uint refer[1024];
-  struct spinlock lock;
-  int size;
-};
-
-void
-init_vaddr_queue(struct vaddr_queue* vaq)
-{
-  initlock(&vaq->lock, "vaq");
-  vaq->size = 0;
-}
-
-void
-vaddr_queue_enq(struct vaddr_queue* vaq, uint va)
-{
-  if (vaq->size == 1024) {
-    return;
-  }
-  acquire(&vaq->lock);
-  vaq->vaddrs[vaq->size] = va;
-  vaq->size++;
-  release(&vaq->lock);
-  return;
-}
-
-uint
-vaddr_queue_deq(struct vaddr_queue* vaq)
-{
-  uint va;
-  int i;
-  if (vaq->size == 0) {
-    return -1;
-  }
-  va = vaq->vaddrs[0];
-  acquire(&vaq->lock);
-  for (i = 1; i < vaq->size; i++) {
-    vaq->vaddrs[i-1] = vaq->vaddrs[i];
-  }
-  vaq->size--;
-  release(&vaq->lock);
-  return va;
-}
- 
-// Implementation of itoa()
-char* itoa(int num, char* str, int* num)
-{
-    int i = 0;
-    bool isNegative = false;
- 
-    /* Handle 0 explicitely, otherwise empty string is printed for 0 */
-    if (num == 0)
-    {
-        str[i++] = '0';
-        str[i] = '\0';
-        return str;
-    }
- 
-    // In standard itoa(), negative numbers are handled only with 
-    // base 10. Otherwise numbers are considered unsigned.
-    if (num < 0 && base == 10)
-    {
-        isNegative = true;
-        num = -num;
-    }
- 
-    // Process individual digits
-    while (num != 0)
-    {
-        int rem = num % base;
-        str[i++] = (rem > 9)? (rem-10) + 'a' : rem + '0';
-        num = num/base;
-    }
- 
-    // If number is negative, append '-'
-    if (isNegative)
-        str[i++] = '-';
- 
-    str[i] = '\0'; // Append string terminator
-    *num = i;
-    // Reverse the string
-    int start = 0;
-    int end = i -1;
-    while (start < end)
-    {
-        swap(*(str+start), *(str+end));
-        start++;
-        end--;
-    }
- 
-    return str;
 }
