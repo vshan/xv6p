@@ -15,6 +15,7 @@ int swap_map_check(struct va_swap_map* vsm, uint va);
 void init_vaddr_queue(struct vaddr_queue* vaq);
 void vaddr_queue_enq(struct vaddr_queue* vaq, uint va);
 uint vaddr_queue_deq(struct vaddr_queue* vaq);
+pte_t *walkpgdir(pde_t *pgdir, const void *va, int alloc);
 
 // Interrupt descriptor table (shared by all CPUs).
 struct gatedesc idt[256];
@@ -142,8 +143,9 @@ page_fault_handler(void)
   // For lazy page allocation
   // if is heap or is stack
   // stack if equal, heap otherwise
-  if (rcr2() >= proc->tf->esp) { 
-    cprintf("heap is faulting at\n");
+  uint val, val2;
+  if ((val = rcr2()) >= (val2 = proc->tf->esp)) { 
+    cprintf("heap is faulting at %d %d\n", val, val2);
     char *new_mem;
     uint old_adr;
     old_adr = PGROUNDDOWN(rcr2());
@@ -153,12 +155,12 @@ page_fault_handler(void)
       page_out();
     }
     int ind;
-    vaddr_queue_enq(proc->vaq, rcr2());
+    vaddr_queue_enq(&proc->vaq, rcr2());
     memset(new_mem, 0, PGSIZE);
     mappages(proc->pgdir, (char*)old_adr, PGSIZE, v2p(new_mem), PTE_W|PTE_U);
 
-    if ((ind = swap_map_check(proc->vsm, old_adr)) == -1) { // heap is new
-      swap_map_add(proc->vsm, rcr2());
+    if ((ind = swap_map_check(&proc->vsm, old_adr)) == -1) { // heap is new
+      swap_map_add(&proc->vsm, rcr2());
     }
     else { // heap page exists
       loaduvm(proc->pgdir, (char*)old_adr, proc->ipgswp, ind * PGSIZE, PGSIZE);
@@ -177,7 +179,7 @@ page_fault_handler(void)
     // readi(proc->ipgswp, (char*)&elf, 0, sizeof(elf));
     // readi(proc->ipgswp, (char*)&ph, elf.phoff, sizeof(ph));
     //allocuvm(pgdir, sz, ph.vaddr + ph.memsz);
-    int ind = swap_map_check(proc->vsm, old_adr);
+    int ind = swap_map_check(&proc->vsm, old_adr);
     while((new_mem = kalloc()) == 0)
     {
       cprintf("system out of memory\n");
@@ -186,21 +188,22 @@ page_fault_handler(void)
       //deallocuvm(pgdir, newsz, oldsz); TODO: Implement this
       page_out();
     }
-    vaddr_queue_enq(proc->vaq, rcr2());
+    vaddr_queue_enq(&proc->vaq, rcr2());
     memset(new_mem, 0, PGSIZE);
     mappages(proc->pgdir, (char*)old_adr, PGSIZE, v2p(new_mem), PTE_W|PTE_U);
     loaduvm(proc->pgdir, (char*)old_adr, proc->ipgswp, ind * PGSIZE, PGSIZE);
-
   }
 }
 
 void 
 page_out(void)
 {
-  uint repl_va = PGROUNDDOWN(vaddr_queue_deq(proc->vaq));
-  int ind = swap_map_check(proc->vsm, repl_va);
+  pte_t *pte;
+  uint pa;
+  uint repl_va = PGROUNDDOWN(vaddr_queue_deq(&proc->vaq));
+  int ind = swap_map_check(&proc->vsm, repl_va);
   writei(proc->ipgswp, (char*)repl_va, ind * PGSIZE, PGSIZE);
-  pte = walkpgdir(pgdir, (char*)a, 0);
+  pte = walkpgdir(proc->pgdir, (char*)repl_va, 0);
   pa = PTE_ADDR(*pte);
   if(pa == 0)
     panic("kfree");

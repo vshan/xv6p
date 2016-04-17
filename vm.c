@@ -43,7 +43,7 @@ seginit(void)
 // Return the address of the PTE in page table pgdir
 // that corresponds to virtual address va.  If alloc!=0,
 // create any required page table pages.
-static pte_t *
+pte_t *
 walkpgdir(pde_t *pgdir, const void *va, int alloc)
 {
   pde_t *pde;
@@ -384,60 +384,3 @@ copyout(pde_t *pgdir, uint va, void *p, uint len)
 // Blank page.
 //PAGEBREAK!
 // Blank page.
-
-void
-swap_map_add(struct va_swap_map* vsm, uint va)
-{
-  vsm->vaddrs[vsm->size++] = PGROUNDDOWN(va); 
-}
-
-int
-swap_map_check(struct va_swap_map* vsm, uint va)
-{
-  // va must be page-aligned
-  int index;
-  for (index = 0; index < size; index++) {
-    if (va == vsm->vaddrs[index]) {
-      return index;
-    }
-  }
-  return -1;
-}
-
-void
-init_vaddr_queue(struct vaddr_queue* vaq)
-{
-  initlock(&vaq->lock, "vaq");
-  vaq->size = 0;
-}
-
-void
-vaddr_queue_enq(struct vaddr_queue* vaq, uint va)
-{
-  if (vaq->size == 1024) {
-    return;
-  }
-  acquire(&vaq->lock);
-  vaq->vaddrs[vaq->size] = va;
-  vaq->size++;
-  release(&vaq->lock);
-  return;
-}
-
-uint
-vaddr_queue_deq(struct vaddr_queue* vaq)
-{
-  uint va;
-  int i;
-  if (vaq->size == 0) {
-    return -1;
-  }
-  va = vaq->vaddrs[0];
-  acquire(&vaq->lock);
-  for (i = 1; i < vaq->size; i++) {
-    vaq->vaddrs[i-1] = vaq->vaddrs[i];
-  }
-  vaq->size--;
-  release(&vaq->lock);
-  return va;
-}

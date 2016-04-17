@@ -464,3 +464,63 @@ procdump(void)
     cprintf("\n");
   }
 }
+
+// --------------------------------------------------------------------------
+
+
+void
+swap_map_add(struct va_swap_map* vsm, uint va)
+{
+  vsm->vaddrs[vsm->size++] = PGROUNDDOWN(va); 
+}
+
+int
+swap_map_check(struct va_swap_map* vsm, uint va)
+{
+  // va must be page-aligned
+  int index;
+  for (index = 0; index < vsm->size; index++) {
+    if (va == vsm->vaddrs[index]) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+void
+init_vaddr_queue(struct vaddr_queue* vaq)
+{
+  //initlock(&vaq->lock, "vaq");
+  vaq->size = 0;
+}
+
+void
+vaddr_queue_enq(struct vaddr_queue* vaq, uint va)
+{
+  if (vaq->size == 1024) {
+    return;
+  }
+  //acquire(&vaq->lock);
+  vaq->vaddrs[vaq->size] = va;
+  vaq->size++;
+  //release(&vaq->lock);
+  return;
+}
+
+uint
+vaddr_queue_deq(struct vaddr_queue* vaq)
+{
+  uint va;
+  int i;
+  if (vaq->size == 0) {
+    return -1;
+  }
+  va = vaq->vaddrs[0];
+  //acquire(&vaq->lock);
+  for (i = 1; i < vaq->size; i++) {
+    vaq->vaddrs[i-1] = vaq->vaddrs[i];
+  }
+  vaq->size--;
+  //release(&vaq->lock);
+  return va;
+}

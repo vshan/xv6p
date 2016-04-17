@@ -7,6 +7,12 @@
 #include "x86.h"
 #include "elf.h"
 #include "file.h"
+#include "stat.h"
+
+char* itoa(int num, char* str, int* nu);
+void init_vaddr_queue(struct vaddr_queue* vaq);
+void swap_map_add(struct va_swap_map* vsm, uint va);
+struct inode* create(char *path, short type, short major, short minor);
 
 int
 exec(char *path, char **argv)
@@ -58,7 +64,7 @@ exec(char *path, char **argv)
   }
   int num;
   char swap_name[40];
-  swap_name = itoa(proc->pid, swap_name, &num);
+  itoa(proc->pid, swap_name, &num);
   swap_name[num++] = '.';
   swap_name[num++] = 's';
   swap_name[num++] = 'w';
@@ -73,13 +79,14 @@ exec(char *path, char **argv)
   sf->readable = 1;
   sf->writable = 1;
   fileclose(sf);
+  cprintf("File created!\n");
 
   init_vaddr_queue(&proc->vaq);
   uint index;
-  proc->vsm->size = 0;
+  proc->vsm.size = 0;
   char *mem_buf = kalloc();
   for (index = 0; index < sz; index += PGSIZE) {
-    swap_map_add(proc->vsm, index);
+    swap_map_add(&proc->vsm, index);
     readi(ip, mem_buf, ph.off + index, PGSIZE);
     writei(ip2, mem_buf, index, PGSIZE);
   }
@@ -144,10 +151,10 @@ exec(char *path, char **argv)
 
  
 // Implementation of itoa()
-char* itoa(int num, char* str, int* num)
+char* itoa(int num, char* str, int* nu)
 {
     int i = 0;
-    bool isNegative = false;
+    char temp;
  
     /* Handle 0 explicitely, otherwise empty string is printed for 0 */
     if (num == 0)
@@ -157,13 +164,7 @@ char* itoa(int num, char* str, int* num)
         return str;
     }
  
-    // In standard itoa(), negative numbers are handled only with 
-    // base 10. Otherwise numbers are considered unsigned.
-    if (num < 0 && base == 10)
-    {
-        isNegative = true;
-        num = -num;
-    }
+    int base = 10;
  
     // Process individual digits
     while (num != 0)
@@ -173,18 +174,18 @@ char* itoa(int num, char* str, int* num)
         num = num/base;
     }
  
-    // If number is negative, append '-'
-    if (isNegative)
-        str[i++] = '-';
+    // If number is negative, append '-
  
     str[i] = '\0'; // Append string terminator
-    *num = i;
+    *nu = i;
     // Reverse the string
     int start = 0;
     int end = i -1;
     while (start < end)
     {
-        swap(*(str+start), *(str+end));
+        temp = *(str + start);
+        *(str + start) = *(str + end);
+        *(str + end) = temp;
         start++;
         end--;
     }

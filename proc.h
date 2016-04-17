@@ -55,7 +55,7 @@ enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 struct vaddr_queue {
   uint vaddrs[1024];
   //uint refer[1024];
-  struct spinlock lock;
+  //struct spinlock lock;
   int size;
 };
 
