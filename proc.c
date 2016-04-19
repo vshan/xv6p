@@ -467,6 +467,11 @@ procdump(void)
 
 // --------------------------------------------------------------------------
 
+void
+init_swap_map(struct va_swap_map* vsm)
+{
+  vsm->size = 0;
+}
 
 void
 swap_map_add(struct va_swap_map* vsm, uint va)

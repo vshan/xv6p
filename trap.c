@@ -144,8 +144,17 @@ page_fault_handler(void)
   // if is heap or is stack
   // stack if equal, heap otherwise
   uint val, val2;
-  if ((val = rcr2()) >= (val2 = proc->tf->esp)) { 
+  if (((uint)(val = rcr2())) >= ((uint)(val2 = proc->tf->esp))) {
+    int i;
     cprintf("heap is faulting at %d %d\n", val, val2);
+    cprintf("contents of swap map: ");
+    for (i = 0; i < proc->vsm.size; i++) {
+      cprintf("0x%x", proc->vsm.vaddrs[i]);
+    }
+    cprintf("contents of vaddr queue: ");
+    for (i = 0; i < proc->vaq.size; i++) {
+      cprintf("0x%x", proc->vaq.vaddrs[i]);
+    }
     char *new_mem;
     uint old_adr;
     old_adr = PGROUNDDOWN(rcr2());
@@ -169,15 +178,21 @@ page_fault_handler(void)
   // page fault is from code data segment
   // read from disk, page it in
   else {
-    //struct elfhdr elf;
-    //struct proghdr ph;
+    int i;
     uint old_adr;
     char *new_mem;
     cprintf("text data segment is faulting!\n");
+    cprintf("contents of swap map: ");
+    for (i = 0; i < proc->vsm.size; i++) {
+      cprintf("0x%x", proc->vsm.vaddrs[i]);
+    }
+    cprintf("contents of vaddr queue: ");
+    for (i = 0; i < proc->vaq.size; i++) {
+      cprintf("0x%x", proc->vaq.vaddrs[i]);
+    }
     old_adr = PGROUNDDOWN(rcr2());
     cprintf("at 0x%x\n", rcr2());
-    // readi(proc->ipgswp, (char*)&elf, 0, sizeof(elf));
-    // readi(proc->ipgswp, (char*)&ph, elf.phoff, sizeof(ph));
+    
     //allocuvm(pgdir, sz, ph.vaddr + ph.memsz);
     int ind = swap_map_check(&proc->vsm, old_adr);
     while((new_mem = kalloc()) == 0)
@@ -191,7 +206,18 @@ page_fault_handler(void)
     vaddr_queue_enq(&proc->vaq, rcr2());
     memset(new_mem, 0, PGSIZE);
     mappages(proc->pgdir, (char*)old_adr, PGSIZE, v2p(new_mem), PTE_W|PTE_U);
-    loaduvm(proc->pgdir, (char*)old_adr, proc->ipgswp, ind * PGSIZE, PGSIZE);
+    if ((ind = swap_map_check(&proc->vsm, old_adr)) == -1) { // code data is new
+      swap_map_add(&proc->vsm, rcr2());
+      struct elfhdr elf;
+      struct proghdr ph;
+      readi(proc->ipgswp2, (char*)&elf, 0, sizeof(elf));
+      readi(proc->ipgswp2, (char*)&ph, elf.phoff, sizeof(ph));
+      loaduvm(proc->pgdir, (char*)old_adr, proc->ipgswp2, ph.off + old_adr, PGSIZE);
+    }
+    else { // code page exists
+      loaduvm(proc->pgdir, (char*)old_adr, proc->ipgswp, ind * PGSIZE, PGSIZE);
+    }
+    //loaduvm(proc->pgdir, (char*)old_adr, proc->ipgswp, ind * PGSIZE, PGSIZE);
   }
 }
 

@@ -73,14 +73,16 @@ mappages(pde_t *pgdir, void *va, uint size, uint pa, int perm)
 {
   char *a, *last;
   pte_t *pte;
-  
+  cprintf("I got called :D \n");
   a = (char*)PGROUNDDOWN((uint)va);
   last = (char*)PGROUNDDOWN(((uint)va) + size - 1);
   for(;;){
     if((pte = walkpgdir(pgdir, a, 1)) == 0)
       return -1;
-    if(*pte & PTE_P)
+    if(*pte & PTE_P) {
+      cprintf("bros: pte: 0x%x\n", (uint) *pte);
       panic("remap");
+    }
     *pte = pa | perm | PTE_P;
     if(a == last)
       break;

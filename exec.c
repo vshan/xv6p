@@ -12,6 +12,7 @@
 char* itoa(int num, char* str, int* nu);
 void init_vaddr_queue(struct vaddr_queue* vaq);
 void swap_map_add(struct va_swap_map* vsm, uint va);
+void init_swap_map(struct va_swap_map* vsm);
 struct inode* create(char *path, short type, short major, short minor);
 
 int
@@ -62,6 +63,7 @@ exec(char *path, char **argv)
     //  goto bad;
     cprintf("addr: 0x%x, inode: %d, offset: 0x%x, %d, filesz: 0x%x, %d\n", ph.vaddr, ip, ph.off, ph.off, ph.filesz, ph.filesz);
   }
+  proc->ipgswp2 = ip;
   int num;
   char swap_name[40];
   itoa(proc->pid, swap_name, &num);
@@ -82,11 +84,13 @@ exec(char *path, char **argv)
   cprintf("File created!\n");
 
   init_vaddr_queue(&proc->vaq);
+  init_swap_map(&proc->vsm);
+  
   uint index;
   proc->vsm.size = 0;
   char *mem_buf = kalloc();
   for (index = 0; index < sz; index += PGSIZE) {
-    swap_map_add(&proc->vsm, index);
+    //swap_map_add(&proc->vsm, index);
     readi(ip, mem_buf, ph.off + index, PGSIZE);
     writei(ip2, mem_buf, index, PGSIZE);
   }

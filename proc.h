@@ -80,6 +80,7 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   struct inode *ipgswp;        // For demand paging
+  struct inode *ipgswp2;
   struct vaddr_queue vaq;      // For demand paging
   struct va_swap_map vsm;      // For demand paging
 };
