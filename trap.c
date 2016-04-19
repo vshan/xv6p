@@ -95,15 +95,6 @@ trap(struct trapframe *tf)
     page_fault_handler();
     break;
 
-    /*
-     Currently this Page Fault handler only deals with lazy page allocation of heap
-     memory. How do we bring in the code-data we need ? think of readi. And how do we
-     distiguish the two? 
-
-
-    */
-
-
 
   //PAGEBREAK: 13
   default:
@@ -145,16 +136,16 @@ page_fault_handler(void)
   // stack if equal, heap otherwise
   uint val, val2;
   if (((uint)(val = rcr2())) >= ((uint)(val2 = proc->tf->esp))) {
-    int i;
-    cprintf("heap is faulting at %d %d\n", val, val2);
-    cprintf("contents of swap map: ");
-    for (i = 0; i < proc->vsm.size; i++) {
-      cprintf("0x%x", proc->vsm.vaddrs[i]);
-    }
-    cprintf("contents of vaddr queue: ");
-    for (i = 0; i < proc->vaq.size; i++) {
-      cprintf("0x%x", proc->vaq.vaddrs[i]);
-    }
+    //int i;
+    //cprintf("heap is faulting at %d %d\n", val, val2);
+    //cprintf("contents of swap map: ");
+    //for (i = 0; i < proc->vsm.size; i++) {
+    //  cprintf("0x%x", proc->vsm.vaddrs[i]);
+    //}
+    //cprintf("contents of vaddr queue: ");
+    //for (i = 0; i < proc->vaq.size; i++) {
+      //cprintf("0x%x", proc->vaq.vaddrs[i]);
+    //}
     char *new_mem;
     uint old_adr;
     old_adr = PGROUNDDOWN(rcr2());
@@ -178,20 +169,20 @@ page_fault_handler(void)
   // page fault is from code data segment
   // read from disk, page it in
   else {
-    int i;
+    //int i;
     uint old_adr;
     char *new_mem;
-    cprintf("text data segment is faulting!\n");
-    cprintf("contents of swap map: ");
-    for (i = 0; i < proc->vsm.size; i++) {
-      cprintf("0x%x", proc->vsm.vaddrs[i]);
-    }
-    cprintf("contents of vaddr queue: ");
-    for (i = 0; i < proc->vaq.size; i++) {
-      cprintf("0x%x", proc->vaq.vaddrs[i]);
-    }
+    //cprintf("text data segment is faulting!\n");
+    //cprintf("contents of swap map: ");
+    //for (i = 0; i < proc->vsm.size; i++) {
+    //  cprintf("0x%x", proc->vsm.vaddrs[i]);
+    //}
+    //cprintf("contents of vaddr queue: ");
+    //for (i = 0; i < proc->vaq.size; i++) {
+    //  cprintf("0x%x", proc->vaq.vaddrs[i]);
+    //}
     old_adr = PGROUNDDOWN(rcr2());
-    cprintf("at 0x%x\n", rcr2());
+    //cprintf("at 0x%x\n", rcr2());
     
     //allocuvm(pgdir, sz, ph.vaddr + ph.memsz);
     int ind = swap_map_check(&proc->vsm, old_adr);

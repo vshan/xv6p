@@ -63,28 +63,70 @@ morecore(uint nu)
 void*
 malloc(uint nbytes)
 {
-  Header *p, *prevp;
+  Header *p, *prevp; //*initp;
   uint nunits;
+  uint best_fit = 0xffffffff;
+  Header *best_p, *best_prevp;
+  uint i;
 
   nunits = (nbytes + sizeof(Header) - 1)/sizeof(Header) + 1;
   if((prevp = freep) == 0){
     base.s.ptr = freep = prevp = &base;
     base.s.size = 0;
   }
+  //initp = prevp->s.ptr;
   for(p = prevp->s.ptr; ; prevp = p, p = p->s.ptr){
+    //printf(1, "got called 1\n");
     if(p->s.size >= nunits){
-      if(p->s.size == nunits)
+      printf(1, "got called 4\n");
+      if(p->s.size == nunits) {
+        printf(1, "got called 2\n");
         prevp->s.ptr = p->s.ptr;
-      else {
-        p->s.size -= nunits;
-        p += p->s.size;
-        p->s.size = nunits;
+        //best_fit = p->s.size;
+        //best_p = p;
+        freep = prevp;
+        return (void *)(p + 1);
+        //return (void*)(p + 1);
       }
-      freep = prevp;
-      return (void*)(p + 1);
+      else {
+        if (p->s.size < best_fit) {
+          printf(1, "got called 3\n");
+          i++;
+          best_fit = p->s.size;
+          best_p = p;
+          best_prevp = prevp;
+          if (i == 10)
+            break;
+        }
+        //p->s.size -= nunits;
+        //p += p->s.size;
+        //p->s.size = nunits;
+      }
+
+      //freep = prevp;
+      //return (void*)(p + 1);
     }
-    if(p == freep)
+    
+    if(p == prevp)
       if((p = morecore(nunits)) == 0)
         return 0;
   }
+
+  best_prevp->s.ptr = best_p->s.ptr;
+  freep = best_prevp;
+  return (void *)(best_p);
+
+
+
+
+
+  // best_p->s.size -= nunits;
+  // best_p += best_p->s.size;
+  // best_p->s.size = nunits;
+  // best_prevp->s.ptr = best_p;
+  // freep = best_prevp;
+  
+  // return (void *)(best_p + 1);
+
+
 }
