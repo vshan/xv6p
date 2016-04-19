@@ -88,13 +88,13 @@ exec(char *path, char **argv)
   
   uint index;
   proc->vsm.size = 0;
-  char *mem_buf = kalloc();
-  for (index = 0; index < sz; index += PGSIZE) {
+  //char *mem_buf = kalloc();
+  //for (index = 0; index < sz; index += PGSIZE) {
     //swap_map_add(&proc->vsm, index);
-    readi(ip, mem_buf, ph.off + index, PGSIZE);
-    writei(ip2, mem_buf, index, PGSIZE);
-  }
-  kfree(mem_buf);
+  //  readi(ip, mem_buf, ph.off + index, PGSIZE);
+  //  writei(ip2, mem_buf, index, PGSIZE);
+  //}
+  //kfree(mem_buf);
   proc->ipgswp = ip2;
   iunlockput(ip);
   end_op();
